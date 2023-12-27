@@ -19,18 +19,20 @@ import torch.utils.checkpoint
 from torch import nn
 
 from transformers import RobertaModel, AutoConfig
-
+from transformers import BertModel,DistilBertModel
 from src.models.modules.attention import LabelAttention
 
 
 class PLMICD(nn.Module):
     def __init__(self, num_classes: int, model_path: str, **kwargs):
         super().__init__()
+        num_classes=22 #ICD
+#        num_classes=17 #PCS
         self.config = AutoConfig.from_pretrained(
             model_path, num_labels=num_classes, finetuning_task=None
         )
-        self.roberta = RobertaModel(
-            self.config, add_pooling_layer=False
+        self.roberta = DistilBertModel(
+            self.config
         ).from_pretrained(model_path, config=self.config)
         self.attention = LabelAttention(
             input_size=self.config.hidden_size,
