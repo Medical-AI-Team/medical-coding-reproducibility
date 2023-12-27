@@ -9,6 +9,8 @@ class LabelAttention(nn.Module):
         super().__init__()
         self.first_linear = nn.Linear(input_size, projection_size, bias=False)
         self.second_linear = nn.Linear(projection_size, num_classes, bias=False)
+        self.LayerNorm = nn.LayerNorm(num_classes)
+#        self.BatchNorm = nn.BatchNorm1d(num_classes)
         self.third_linear = nn.Linear(input_size, num_classes)
         self._init_weights(mean=0.0, std=0.03)
 
@@ -23,6 +25,10 @@ class LabelAttention(nn.Module):
         """
         weights = torch.tanh(self.first_linear(x))
         att_weights = self.second_linear(weights)
+        att_weights = self.LayerNorm(att_weights)
+
+#        att_weights = self.BatchNorm(att_weights.transpose(1, 2)).transpose(1, 2)
+
         att_weights = torch.nn.functional.softmax(att_weights, dim=1).transpose(1, 2)
         weighted_output = att_weights @ x
         return (
