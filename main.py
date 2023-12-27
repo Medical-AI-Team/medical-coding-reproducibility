@@ -64,6 +64,14 @@ def main(cfg: OmegaConf) -> None:
     pprint(f"CUDA_VISIBLE_DEVICES: {os.environ['CUDA_VISIBLE_DEVICES']}")
 
     data = data_pipeline(config=cfg.data)
+    
+#    data_frame = data.df.to_pandas()
+#    # Specify the Excel file path and sheet name
+#    excel_file_path = 'mimiciii_full.xlsx'
+#    sheet_name = 'Sheet1'  # You can change the sheet name as needed
+#
+#    # Use Pandas to save the DataFrame to an Excel file
+#    data_frame.to_excel(excel_file_path, sheet_name=sheet_name, index=False, engine='openpyxl')
 
     text_encoder = get_text_encoder(
         config=cfg.text_encoder, data_dir=cfg.data.dir, texts=data.get_train_documents
