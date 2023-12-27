@@ -1,6 +1,6 @@
 name: HuggingFaceTokenizer
 configs: 
-  model_path: <path/to/RoBERTa-base-PM-M3-Voc-hf>
+  model_path: medicalai/ClinicalBERT
   add_special_token: true
   padding: false
   use_fast: true
