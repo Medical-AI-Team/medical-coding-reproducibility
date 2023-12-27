@@ -11,7 +11,7 @@ from transformers import AutoTokenizer
 
 from src.data.tokenizers import word_tokenizer
 from src.settings import PAD_TOKEN, UNKNOWN_TOKEN
-
+import json
 
 class Transform(nn.Module):
     def __init__(self):
@@ -409,6 +409,131 @@ class OneHotEncoder(Transform):
         self.target2index = {}
         self.index2target = {}
         self.file_name = "target2index.json"
+        self.load(".")
+        
+        self.icd_indeces = []
+        self.pcs_indeces = []
+
+        for i in range(len(self.index2target)):
+          if "." in self.index2target[i]:
+            self.icd_indeces.append(i)
+          else:
+            self.pcs_indeces.append(i)
+
+        index2target_icd = {}
+        index2target_pcs = {}
+
+        i = 0
+        for index in self.icd_indeces:
+          index2target_icd[i] = self.index2target[index]
+          i += 1
+
+        i = 0
+        for index in self.pcs_indeces:
+          index2target_pcs[i] = self.index2target[index]
+          i += 1
+
+        self.icd_categories = [
+            ("A00", "B99"),
+            ("C00", "D49"),
+            ("D50", "D89"),
+            ("E00", "E89"),
+            ("F01", "F99"),
+            ("G00", "G99"),
+            ("H00", "H59"),
+            ("H60", "H95"),
+            ("I00", "I99"),
+            ("J00", "J99"),
+            ("K00", "K95"),
+            ("L00", "L99"),
+            ("M00", "M99"),
+            ("N00", "N99"),
+            ("O00", "O9A"),
+            ("P00", "P96"),
+            ("Q00", "Q99"),
+            ("R00", "R99"),
+            ("S00", "T88"),
+            ("U00", "U85"),
+            ("V00", "Y99"),
+            ("Z00", "Z99")
+        ]
+
+        def map_to_icd_family(code):
+          # Extract the first letter and the first 3 digits from the code
+          code_prefix = code.replace(".","")[:3]
+          index = 0
+          # Check the code against the ranges and return the corresponding family
+          for start, end in self.icd_categories:
+              if start <= code_prefix <= end:
+                return index
+              index+=1
+
+        self.pcs_categories = {
+                "0": "Medical and Surgical",
+                "1": "Obstetrics",
+                "2": "Placement",
+                "3": "Administration",
+                "4": "Measurement and Monitoring",
+                "5": "Extracorporeal or Systemic Assistance and Performance",
+                "6": "Extracorporeal or Systemic Therapies",
+                "7": "Osteopathic",
+                "8": "Other Procedures",
+                "9": "Chiropractic",
+                "B": "Imaging",
+                "C": "Nuclear Medicine",
+                "D": "Radiation Therapy",
+                "F": "Physical Rehabilitation and Diagnostic Audiology",
+                "G": "Mental Health",
+                "H": "Substance Abuse Treatment",
+                "X": "New Technology"
+            }
+
+
+        def map_to_pcs_family(code):
+          # Extract the first letter and the first 3 digits from the code
+          code_prefix = code[:1]
+
+          index = 0
+          # Check the code against the ranges and return the corresponding family
+          for key,value in self.pcs_categories.items():
+              if code_prefix == key:
+                return index
+              index += 1
+    
+        self.indix_2_icd_family_indix = {}
+        self.indix_2_pcs_family_indix = {}
+        
+        for index in range(len(self.icd_indeces)):
+            self.indix_2_icd_family_indix[index] = map_to_icd_family(index2target_icd[index])
+            
+        for index in range(len(self.pcs_indeces)):
+            self.indix_2_pcs_family_indix[index] = map_to_pcs_family(index2target_pcs[index])
+                
+    def create_icd_family_sample(self, output_tensor):
+        sample_family_indices = set()
+
+        for index, num in enumerate(output_tensor[self.icd_indeces]):
+            if num == 1:
+                sample_family_indices.add(self.indix_2_icd_family_indix[index])
+
+        sample = torch.zeros(len(self.icd_categories), dtype=torch.float32)
+        sample[list(sample_family_indices)] = 1
+
+        return sample
+
+
+    def create_pcs_family_sample(self, output_tensor):
+        sample_family_indices = set()
+
+        for index, num in enumerate(output_tensor[self.pcs_indeces]):
+            if num == 1:
+                sample_family_indices.add(self.indix_2_pcs_family_indix[index])
+
+        sample = torch.zeros(len(self.pcs_categories), dtype=torch.float32)
+        sample[list(sample_family_indices)] = 1
+
+        return sample
+        
 
     def fit(self, targets: set[str]) -> None:
         """Fit the encoder to all the targets in the dataset. That also includes the validation and test set.
@@ -442,11 +567,17 @@ class OneHotEncoder(Transform):
         Returns:
             torch.Tensor: One-hot encoded tensor
         """
+
         output_tensor = torch.zeros(self.num_classes)
+        return output_tensor
         for label in targets:
             if label in self.target2index:
                 output_tensor[self.target2index[label]] = 1
-        return output_tensor
+                
+    
+        # return self.create_icd_family_sample(output_tensor)
+        
+#        return self.create_pcs_family_sample(output_tensor)
 
     def inverse_transform(self, output_tensor: torch.Tensor) -> set[str]:
         """Transform a one-hot encoded tensor into a set of targets
